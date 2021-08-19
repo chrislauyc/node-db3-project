@@ -24,10 +24,10 @@ function find() { // EXERCISE A
 
   */
   return db("schemes")
+  .select(db.raw("schemes.*, count(steps.step_id) as number_of_steps"))
   .leftJoin("steps","steps.scheme_id","schemes.scheme_id")
   .groupBy("schemes.scheme_id")
   .orderBy("schemes.scheme_id","asc")
-  .count("steps.step_id as number_of_steps");
 }
 
 async function findById(scheme_id) { // EXERCISE B
@@ -101,21 +101,31 @@ async function findById(scheme_id) { // EXERCISE B
         "steps": []
       },
   */
-    const schemes =  await db("schemes")
-      .leftJoin("steps","steps.scheme_id","schemes.scheme_id")
-      .where({"schemes.scheme_id":scheme_id})
-      .orderBy("steps.step_number","asc");
-    if(schemes){
+    const schemes = await db.select("step_id","step_number","instructions","scheme_name","schemes.scheme_id")
+    .from("schemes")
+    .leftJoin("steps","schemes.scheme_id","steps.scheme_id")
+    .orderBy("steps.step_number","asc")
+    .where({"schemes.scheme_id":scheme_id})
+    // .leftJoin("schemes","schemes.scheme_id","steps.scheme_id")
+    // const schemes =  await db.select("scheme_name","steps.*")
+    // .from("steps")
+    // .leftJoin("schemes","schemes.scheme_id","steps.scheme_id")
+    // .where({scheme_id});
+    // .select("scheme_name","steps.*")
+
+    if(schemes[0]){
       const data = {
         scheme_id:schemes[0].scheme_id,
         scheme_name:schemes[0].scheme_name,
-        steps:schemes.map(row=>(
+        steps:schemes[0].step_id?schemes.map(row=>(
           {
             step_id:row.step_id,
             step_number:row.step_number,
             instructions:row.instructions
           }
         ))
+        :
+        []
       };
       return data;
     }
@@ -147,8 +157,9 @@ function findSteps(scheme_id) { // EXERCISE C
   */
       return db.select("step_id","step_number","instructions","scheme_name")
       .from("steps")
-      .leftJoin("schemes","schemes.scheme_id","steps.scheme_id")
-      .where({scheme_id});
+      .join("schemes","schemes.scheme_id","steps.scheme_id")
+      .where({"steps.scheme_id":scheme_id})
+      .orderBy("step_number","asc");
 }
 
 async function add(scheme) { // EXERCISE D
@@ -176,7 +187,7 @@ async function addStep(scheme_id, step) { // EXERCISE E
     instructions
   } = step;
   await db("steps").insert({step_number,instructions,scheme_id});
-  return db("steps").where({scheme_id});
+  return db("steps").where({scheme_id}).orderBy("step_number","asc");
 }
 
 module.exports = {
